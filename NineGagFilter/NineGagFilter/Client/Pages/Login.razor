@@ -1,0 +1,80 @@
+﻿@page "/Login"
+@inject IApiClient NineGagApiClient
+@inject Blazored.LocalStorage.ILocalStorageService LocalStorage
+@inject ILogger<Login> Logger
+@inject State.AuthState AuthState
+@inject NavigationManager NavigationManager
+
+<Row>
+    <Column>
+        <Card>
+            <CardHeader>
+                <CardTitle>Login</CardTitle>
+            </CardHeader>
+            <CardBody>
+                <p>
+                    It seems that you're not logged in yet, please login to continue. Facebook and google authentication will be added in the future.
+                </p>
+                <Field>
+                    <FieldLabel>Username</FieldLabel>
+                    <TextEdit Placeholder="Username..." @bind-Text="@username" />
+                </Field>
+                <Field>
+                    <FieldLabel>Password</FieldLabel>
+                    <TextEdit Role="TextRole.Password" @bind-Text="@password" />
+                </Field>
+                <Button Color="Color.Primary" Clicked="@LoginAsync">Login</Button>
+                <Snackbar @ref="loginFailedSnackBar">
+                    <SnackbarBody>
+                        Login failed
+                    </SnackbarBody>
+                </Snackbar>
+            </CardBody>
+        </Card>
+    </Column>
+</Row>
+
+@code {
+
+    private Snackbar loginFailedSnackBar;
+    string username;
+    string password;
+
+    protected async override Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+        if (await LocalStorage.ContainKeyAsync("9gag-auth-token"))
+        {
+            NineGagApiClient.AuthenticationInfo.Token = await LocalStorage.GetItemAsync<string>("9gag-auth-token");
+            NineGagApiClient.AuthenticationInfo.TokenWillExpireAt = await LocalStorage.GetItemAsync<DateTime>("9gag-auth-token-expiration-date");
+            OnAuthorized();
+        }
+    }
+
+    async Task LoginAsync()
+    {
+        loginFailedSnackBar.Hide();
+
+        try
+        {
+            await NineGagApiClient.LoginWithCredentialsAsync(username, password);
+            password = string.Empty;
+        }
+        catch (Exception e)
+        {
+            Logger.LogWarning(e.ToString());
+            loginFailedSnackBar.Show();
+            return;
+        }
+
+        await LocalStorage.SetItemAsync("9gag-auth-token", NineGagApiClient.AuthenticationInfo.Token);
+        await LocalStorage.SetItemAsync("9gag-auth-token-expiration-date", NineGagApiClient.AuthenticationInfo.TokenWillExpireAt);
+        OnAuthorized();
+    }
+
+    private void OnAuthorized()
+    {
+        AuthState.FireAuthStateChangedEvent();
+        NavigationManager.NavigateTo("/");
+    }
+}

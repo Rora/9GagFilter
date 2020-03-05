@@ -1,7 +1,32 @@
 ﻿@page "/"
-
+@inject IApiClient NineGagApiClient
+@inject NavigationManager NavigationManager
+@inject Blazored.LocalStorage.ILocalStorageService LocalStorage
+@inject State.AuthState AuthState
 <h1>Hello, world!</h1>
 
-Welcome to your new app.
+<p>Top title: @topTitle</p>
 
-<SurveyPrompt Title="How is Blazor working for you?" />
+<button class="btn btn-primary" @onclick="LoginToNineGagAsync">Click me</button>
+
+@code {
+
+    string topTitle = "pending...";
+
+    protected async override Task OnInitializedAsync()
+    {
+        await base.OnInitializedAsync();
+
+        if (!AuthState.IsAuthenticated)
+        {
+            NavigationManager.NavigateTo("/Login");
+        }
+    }
+
+    private async Task LoginToNineGagAsync()
+    {
+        var posts = await NineGagApiClient.GetPostsAsync(My9GAG.Models.Post.PostCategory.Hot, 10);
+        topTitle = posts.First().Title;
+    }
+
+}

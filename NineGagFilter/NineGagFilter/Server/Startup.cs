@@ -1,9 +1,14 @@
+using AspNetCore.Proxy.Builders;
+using AspNetCore.Proxy.Extensions;
+using AspNetCore.Proxy.Options;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using System;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace NineGagFilter.Server
 {
@@ -19,6 +24,7 @@ namespace NineGagFilter.Server
                 opts.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(
                     new[] { "application/octet-stream" });
             });
+            services.AddProxies();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -37,11 +43,39 @@ namespace NineGagFilter.Server
 
             app.UseRouting();
 
+            var proxyCatchAllRoute = "NineGagCorsProxy/api";
+            app.UseProxies(proxiesBuilder =>
+            {
+                proxiesBuilder.Map(proxyCatchAllRoute + "/{**_}", ConfigurePorxyFor(proxyCatchAllRoute, "https://api.9gag.com"));
+            });
+
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapDefaultControllerRoute();
                 endpoints.MapFallbackToClientSideBlazor<Client.Program>("index.html");
             });
+        }
+
+        private Action<IProxyBuilder> ConfigurePorxyFor(string proxyCatchAllRoute, string endpoint)
+        {
+            return proxyBuilder =>
+            {
+                proxyBuilder.UseHttp((c, a) =>
+                {
+                    return endpoint.Trim('/') + c.Request.Path.Value.Substring(proxyCatchAllRoute.Length + 1, c.Request.Path.Value.Length - proxyCatchAllRoute.Length - 1);
+                }, ConfigureCorsProxy);
+            };
+        }
+
+        private void ConfigureCorsProxy(IHttpProxyOptionsBuilder proxyOptionsBuilder)
+        {
+            proxyOptionsBuilder
+                .WithShouldAddForwardedHeaders(false)
+                .WithBeforeSend((c, m) =>
+                {
+                    m.Headers.Remove("Origin");
+                    return Task.CompletedTask;
+                });
         }
     }
 }
