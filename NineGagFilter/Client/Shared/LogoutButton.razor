@@ -1,44 +1,21 @@
-﻿@implements IDisposable
-@inject IApiClient NineGagApiClient
-@inject Blazored.LocalStorage.ILocalStorageService LocalStorage
-@inject State.AuthState AuthState
+﻿@using Authentication
 @inject NavigationManager NavigationManager
+@inject NineGagAuthenticationStateProvider AuthenticationStateProvider
 
-@if (isAuthenticated)
-{
-    <Button Color="Color.Secondary" Clicked="@Logout" @attributes="InputAttributes">Logout</Button>
-}
+<Button Color="Color.Secondary" Clicked="@Logout" @attributes="InputAttributes">Logout</Button>
 
 @code {
     [Parameter(CaptureUnmatchedValues = true)]
     public Dictionary<string, object> InputAttributes { get; set; }
-
-    bool isAuthenticated => AuthState.IsAuthenticated;
-
-    protected override void OnInitialized()
-    {
-        base.OnInitialized();
-
-        AuthState.AuthStateChanged += AuthStateChanged;
-    }
 
     private void AuthStateChanged(object s, EventArgs e)
     {
         this.StateHasChanged();
     }
 
-    void Logout()
+    async Task Logout()
     {
-        LocalStorage.RemoveItemAsync("9gag-auth-token");
-        LocalStorage.RemoveItemAsync("9gag-auth-token-expiration-date");
-        NineGagApiClient.AuthenticationInfo.ClearToken();
-        AuthState.FireAuthStateChangedEvent();
-
-        NavigationManager.NavigateTo("/", forceLoad: true);
-    }
-
-    public void Dispose()
-    {
-        AuthState.AuthStateChanged -= AuthStateChanged;
+        await AuthenticationStateProvider.LogoutAsync();
+        NavigationManager.NavigateTo("/");
     }
 }

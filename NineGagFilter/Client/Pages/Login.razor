@@ -1,8 +1,9 @@
 ﻿@page "/Login"
-@inject IApiClient NineGagApiClient
-@inject Blazored.LocalStorage.ILocalStorageService LocalStorage
+@layout MainLayout
+
+@using Authentication
 @inject ILogger<Login> Logger
-@inject State.AuthState AuthState
+@inject NineGagAuthenticationStateProvider AuthenticationStateProvider
 @inject NavigationManager NavigationManager
 
 <Row>
@@ -35,19 +36,22 @@
 </Row>
 
 @code {
+    [CascadingParameter]
+    protected Task<AuthenticationState> AuthenticationStateTask { get; set; }
 
     private Snackbar loginFailedSnackBar;
     string username;
     string password;
 
-    protected async override Task OnInitializedAsync()
+    protected override async Task OnInitializedAsync()
     {
         await base.OnInitializedAsync();
-        if (await LocalStorage.ContainKeyAsync("9gag-auth-token"))
+
+        var auth = await AuthenticationStateTask;
+        
+        if (auth?.User?.Identity != null && auth.User.Identity.IsAuthenticated)
         {
-            NineGagApiClient.AuthenticationInfo.Token = await LocalStorage.GetItemAsync<string>("9gag-auth-token");
-            NineGagApiClient.AuthenticationInfo.TokenWillExpireAt = await LocalStorage.GetItemAsync<DateTime>("9gag-auth-token-expiration-date");
-            OnAuthorized();
+            NavigationManager.NavigateTo("/");
         }
     }
 
@@ -57,7 +61,7 @@
 
         try
         {
-            await NineGagApiClient.LoginWithCredentialsAsync(username, password);
+            await this.AuthenticationStateProvider.LoginAsync(username, password);
             password = string.Empty;
         }
         catch (Exception e)
@@ -67,14 +71,6 @@
             return;
         }
 
-        await LocalStorage.SetItemAsync("9gag-auth-token", NineGagApiClient.AuthenticationInfo.Token);
-        await LocalStorage.SetItemAsync("9gag-auth-token-expiration-date", NineGagApiClient.AuthenticationInfo.TokenWillExpireAt);
-        OnAuthorized();
-    }
-
-    private void OnAuthorized()
-    {
-        AuthState.FireAuthStateChangedEvent();
         NavigationManager.NavigateTo("/");
     }
 }

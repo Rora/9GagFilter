@@ -9,7 +9,8 @@ using System.Net.Http;
 using Blazorise;
 using Blazorise.Bootstrap;
 using Blazorise.Icons.FontAwesome;
-using NineGagFilter.Client.State;
+using Microsoft.AspNetCore.Components.Authorization;
+using NineGagFilter.Client.Authentication;
 
 namespace NineGagFilter.Client
 {
@@ -28,7 +29,12 @@ namespace NineGagFilter.Client
                 .AddBootstrapProviders()
                 .AddFontAwesomeIcons();
 
-            builder.Services.AddSingleton<AuthState>();
+            builder.Services.AddScoped<AuthenticationStateProvider, NineGagAuthenticationStateProvider>();
+            builder.Services.AddScoped<NineGagAuthenticationStateProvider>(sp => (NineGagAuthenticationStateProvider)sp.GetService<AuthenticationStateProvider>());
+            builder.Services.AddAuthorizationCore();
+            builder.Services.AddOptions();
+
+
             builder.Services.AddSingleton<My9GAG.NineGagApiClient.IApiClient, My9GAG.NineGagApiClient.ApiClient>(sp => new My9GAG.NineGagApiClient.ApiClient(sp.GetService<HttpClient>(), o =>
             {
                 var localhost = "/";
@@ -39,7 +45,7 @@ namespace NineGagFilter.Client
             host.Services
               .UseBootstrapProviders()
               .UseFontAwesomeIcons();
-            
+
             await host.RunAsync();
         }
     }
